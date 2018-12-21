@@ -5,7 +5,7 @@ Serverless collection solution for Duo security
 Duo provides two-factor authentication, endpoint remediation, and secure single sign-on tools. The Sumo Logic App for Duo Security helps you monitor your Duo account’s authentication logs, administrator logs, and telephony logs. The dashboards provide insight into failed and successful authentications, events breakdown by applications, factors, and users, geo-location of events, admin activities, outliers, threat analysis of authentication, and administrator events.
 
 ### Log Types
-Sumo Logic App for Duo Security uses following logs. See Duo's documentation for details of the log schema.
+Sumo Logic App for Duo Security uses following logs. See Duo's [documentation](https://duo.com/docs/adminapi#logs) for details of the log schema.
 
 - Authentication Logs
 - Administrator Logs
