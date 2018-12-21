@@ -15,7 +15,7 @@ Sumo Logic App for Duo Security uses following logs. See Duo's [documentation](h
 1. Create an HTTP Logs and Metrics Source.
 2. Download the Lambda Function code, and upload it to AWS Lambda Console and create a Lambda function.
 3. Define Environment Variables for the Lambda Function.
-4 .Add a time-based trigger for the Lambda function.
+4. Add a time-based trigger for the Lambda function.
 
 Detailed instructions [here](https://help.sumologic.com/07Sumo-Logic-Apps/22Security_and_Threat_Detection/Duo_Security/Collect_Logs_for_Duo_Security).
 
