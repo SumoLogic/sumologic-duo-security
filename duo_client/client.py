@@ -5,7 +5,7 @@ from __future__ import absolute_import
 from __future__ import print_function
 import six
 
-__version__ = '3.3.0'
+__version__ = '4.2.3'
 
 import base64
 import collections
@@ -15,6 +15,8 @@ import hashlib
 import hmac
 import json
 import os
+import random
+from time import sleep
 import socket
 import ssl
 import sys
@@ -151,6 +153,7 @@ class Client(object):
                  sig_timezone='UTC',
                  user_agent=('Duo API Python/' + __version__),
                  timeout=socket._GLOBAL_DEFAULT_TIMEOUT,
+                 paging_limit=100,
                  digestmod=hashlib.sha1,
                  sig_version=2
                  ):
@@ -167,8 +170,15 @@ class Client(object):
         self.ca_certs = ca_certs
         self.user_agent = user_agent
         self.set_proxy(host=None, proxy_type=None)
+        self.paging_limit = paging_limit
         self.digestmod = digestmod
         self.sig_version = sig_version
+
+        # Constants for handling rate limit backoff and retries
+        self._MAX_BACKOFF_WAIT_SECS = 32
+        self._INITIAL_BACKOFF_WAIT_SECS = 1
+        self._BACKOFF_FACTOR = 2
+        self._RATE_LIMITED_RESP_CODE = 429
 
         # Default timeout is a sentinel object
         if timeout is socket._GLOBAL_DEFAULT_TIMEOUT:
@@ -311,7 +321,6 @@ class Client(object):
         return conn
 
     def _make_request(self, method, uri, body, headers):
-        conn = self._connect()
         if self.proxy_type == 'CONNECT':
             # Ensure the request uses the correct protocol and Host.
             if self.ca_certs == 'HTTP':
@@ -319,14 +328,50 @@ class Client(object):
             else:
                 api_proto = 'https'
             uri = ''.join((api_proto, '://', self.host, uri))
+        conn = self._connect()
+
+        # backoff on rate limited requests and retry. if a request is rate
+        # limited after MAX_BACKOFF_WAIT_SECS, return the rate limited response
+        wait_secs = self._INITIAL_BACKOFF_WAIT_SECS
+        while True:
+            response, data = self._attempt_single_request(
+                conn, method, uri, body, headers)
+            if (response.status != self._RATE_LIMITED_RESP_CODE or
+                    wait_secs > self._MAX_BACKOFF_WAIT_SECS):
+                break
+            random_offset = random.uniform(0.0, 1.0)
+            sleep(wait_secs + random_offset)
+            wait_secs = wait_secs * self._BACKOFF_FACTOR
+
+        self._disconnect(conn)
+        return (response, data)
+
+    def _attempt_single_request(self, conn, method, uri, body, headers):
         conn.request(method, uri, body, headers)
         response = conn.getresponse()
         data = response.read()
-        self._disconnect(conn)
         return (response, data)
 
     def _disconnect(self, conn):
         conn.close()
+
+    def normalize_paging_args(self, limit=None, offset=0):
+        """
+        Converts paging arguments to a format the rest of the client expects.
+
+        :param limit: The number of objects requested of a paginated api
+                      endpoint. If it looks falsy, it is is not changed.
+                      Default None
+        :param offset: The offset to start retrieval. Default 0
+        :return: tuple after the form of (limit, offset)
+        """
+
+        if limit:
+            limit = '{}'.format(limit)
+
+        offset = '{}'.format(offset)
+
+        return (limit, offset)
 
     def json_api_call(self, method, path, params):
         """
@@ -337,9 +382,37 @@ class Client(object):
         (response, data) = self.api_call(method, path, params)
         return self.parse_json_response(response, data)
 
+    def json_paging_api_call(self, method, path, params):
+        """
+        Call a Duo API method which is expected to return a JSON body
+        with a 200 status. Return a generator that can be used to get
+        response data or raise a RuntimeError.
+        """
+        objects = []
+        next_offset = 0
+
+        if 'limit' not in params and self.paging_limit:
+            params['limit'] = str(self.paging_limit)
+
+        while next_offset is not None:
+            params['offset'] = str(next_offset)
+            (response, data) = self.api_call(method, path, params)
+            (objects, metadata) = self.parse_json_response_and_metadata(response, data)
+            next_offset = metadata.get('next_offset', None)
+            for obj in objects:
+                yield obj
+
     def parse_json_response(self, response, data):
         """
         Return the parsed data structure or raise RuntimeError.
+        """
+        (response, metadata) = self.parse_json_response_and_metadata(response, data)
+
+        return response
+
+    def parse_json_response_and_metadata(self, response, data):
+        """
+        Return the parsed data structure and metadata as a tuple or raise RuntimeError.
         """
         def raise_error(msg):
             error = RuntimeError(msg)
@@ -374,7 +447,7 @@ class Client(object):
             data = json.loads(data)
             if data['stat'] != 'OK':
                 raise_error('Received error response: %s' % data)
-            return data['response']
+            return (data['response'], data.get('metadata', {}))
         except (ValueError, KeyError, TypeError):
             raise_error('Received bad response: %s' % data)
 
