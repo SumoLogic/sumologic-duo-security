@@ -209,6 +209,71 @@ class Admin(client.Client):
         else:
             return ','.join([str(int(code)) for code in codes])
 
+    def get_administrative_units(self, admin_id=None, group_id=None,
+                                 integration_key=None, limit=None, offset=0):
+        """
+        Retrieves a list of administrative units optionally filtered by admin,
+            group, or integration. At most one of admin_id, group_id, or
+            integration_key should be passed.
+
+        Args:
+            admin_id(str): id of admin (optional)
+            group_id(str): id of group (optional)
+            integration_key(str): id of integration (optional)
+            limit: The max number of administrative units to fetch at once.
+                   Default None
+            offset: If a limit is passed, the offset to start retrieval.
+                    Default 0
+
+        Returns: list of administrative units
+
+        Raises RuntimeError on error.
+        """
+        (limit, offset) = self.normalize_paging_args(limit, offset)
+
+        params = {}
+        if admin_id is not None:
+            params['admin_id'] = admin_id
+        if group_id is not None:
+            params['group_id'] = group_id
+        if integration_key is not None:
+            params['integration_key'] = integration_key
+
+        if limit:
+            params['limit'] = limit
+            params['offset'] = offset
+
+            return self.json_api_call('GET',
+                                      '/admin/v1/administrative_units',
+                                      params)
+
+        iterator = self.get_administrative_units_iterator(
+            admin_id, group_id, integration_key)
+
+        return list(iterator)
+
+    def get_administrative_units_iterator(self, admin_id=None, group_id=None,
+                                          integration_key=None, ):
+        """
+        Provides a generator which produces administrative_units. Under the
+        hood, this generator uses pagination, so it will only store one page of
+        administrative_units at a time in memory.
+
+        Returns: A generator which produces administrative_units.
+
+        Raises RuntimeError on error.
+        """
+        params = {}
+        if admin_id is not None:
+            params['admin_id'] = admin_id
+        if group_id is not None:
+            params['group_id'] = group_id
+        if integration_key is not None:
+            params['integration_key'] = integration_key
+        return self.json_paging_api_call('GET',
+                                         '/admin/v1/administrative_units',
+                                         params)
+
     def get_administrator_log(self,
                               mintime=0):
         """
@@ -436,17 +501,30 @@ class Admin(client.Client):
             row['host'] = self.host
         return response
 
-    def get_users(self):
+    def get_users_iterator(self):
         """
-        Returns list of users.
-
-
-        Returns list of user objects.
+        Returns iterator of user objects.
 
         Raises RuntimeError on error.
         """
-        response = self.json_api_call('GET', '/admin/v1/users', {})
-        return response
+        return self.json_paging_api_call('GET', '/admin/v1/users', {})
+
+    def get_users(self, limit=None, offset=0):
+        """
+        Returns a list of user objects.
+
+        Params:
+            limit - The maximum number of records to return. (Optional)
+            offset - The offset of the first record to return. (Optional)
+
+        Raises RuntimeError on error.
+        """
+        (limit, offset) = self.normalize_paging_args(limit, offset)
+        if limit:
+            return self.json_api_call(
+                'GET', '/admin/v1/users', {'limit': limit, 'offset': offset})
+
+        return list(self.get_users_iterator())
 
     def get_user_by_id(self, user_id):
         """
@@ -482,7 +560,8 @@ class Admin(client.Client):
         return response
 
     def add_user(self, username, realname=None, status=None,
-                 notes=None, email=None, firstname=None, lastname=None):
+                 notes=None, email=None, firstname=None, lastname=None,
+                 alias1=None, alias2=None, alias3=None, alias4=None):
         """
         Adds a user.
 
@@ -493,6 +572,7 @@ class Admin(client.Client):
         email - Email address (optional)
         firstname - User's given name for ID Proofing (optional)
         lastname - User's surname for ID Proofing (optional)
+        alias1..alias4 - Aliases for the user's primary username (optional)
 
         Returns newly created user object.
 
@@ -511,16 +591,24 @@ class Admin(client.Client):
             params['email'] = email
         if firstname is not None:
             params['firstname'] = firstname
-        if lastname is not None: 
+        if lastname is not None:
             params['lastname'] = lastname
+        if alias1 is not None:
+            params['alias1'] = alias1
+        if alias2 is not None:
+            params['alias2'] = alias2
+        if alias3 is not None:
+            params['alias3'] = alias3
+        if alias4 is not None:
+            params['alias4'] = alias4
         response = self.json_api_call('POST',
                                       '/admin/v1/users',
                                       params)
         return response
 
-    def update_user(self, user_id, username=None, realname=None,
-                    status=None, notes=None, email=None, firstname=None,
-                    lastname=None):
+    def update_user(self, user_id, username=None, realname=None, status=None,
+                    notes=None, email=None, firstname=None, lastname=None,
+                    alias1=None, alias2=None, alias3=None, alias4=None):
         """
         Update username, realname, status, or notes for a user.
 
@@ -552,8 +640,16 @@ class Admin(client.Client):
             params['email'] = email
         if firstname is not None:
             params['firstname'] = firstname
-        if lastname is not None: 
+        if lastname is not None:
             params['lastname'] = lastname
+        if alias1 is not None:
+            params['alias1'] = alias1
+        if alias2 is not None:
+            params['alias2'] = alias2
+        if alias3 is not None:
+            params['alias3'] = alias3
+        if alias4 is not None:
+            params['alias4'] = alias4
         response = self.json_api_call('POST', path, params)
         return response
 
@@ -626,35 +722,80 @@ class Admin(client.Client):
 
         return self.json_api_call('POST', path, params)
 
-    def get_user_bypass_codes(self, user_id):
-        """ Gets a list of bypass codes associated with a user.
+    def get_user_bypass_codes_iterator(self, user_id):
+        """ Returns an iterator of bypass codes associated with a user.
 
             Params:
                 user_id (str) - The user id.
 
             Returns:
-                A list of bypass code dicts.
+                A iterator yielding bypass code dicts.
 
             Notes:
                 Raises RuntimeError on error.
         """
         user_id = six.moves.urllib.parse.quote_plus(str(user_id))
         path = '/admin/v1/users/' + user_id + '/bypass_codes'
-        return self.json_api_call('GET', path, {})
+        return self.json_paging_api_call('GET', path, {})
 
-    def get_user_phones(self, user_id):
+
+    def get_user_bypass_codes(self, user_id, limit=None, offset=0):
+        """ Returns a list of bypass codes associated with a user.
+
+            Params:
+                user_id (str) - The user id.
+                limit - The maximum number of records to return. (Optional)
+                offset - The offset of the first record to return. (Optional)
+
+            Returns:
+                An array of bypass code dicts.
+
+            Notes:
+                Raises RuntimeError on error.
         """
-        Returns an array of phones associated with the user.
+        (limit, offset) = self.normalize_paging_args(limit, offset)
+        if limit:
+            user_id = six.moves.urllib.parse.quote_plus(str(user_id))
+            path = '/admin/v1/users/' + user_id + '/bypass_codes'
+            return self.json_api_call(
+                'GET', path, {'limit': limit, 'offset': offset})
+
+        return list(self.get_user_bypass_codes_iterator(user_id))
+
+    def get_user_phones_iterator(self, user_id):
+        """
+        Returns an iterator of phones associated with the user.
 
         user_id - User ID
 
-        Returns list of phone objects.
+        Returns an iterator of phone objects.
 
         Raises RuntimeError on error.
         """
         user_id = six.moves.urllib.parse.quote_plus(str(user_id))
         path = '/admin/v1/users/' + user_id + '/phones'
-        return self.json_api_call('GET', path, {})
+        return self.json_paging_api_call('GET', path, {})
+
+    def get_user_phones(self, user_id, limit=None, offset=0):
+        """
+        Returns an array of phones associated with the user.
+
+        user_id - User ID
+        limit - The maximum number of records to return. (Optional)
+        offset - The offset of the first record to return. (Optional)
+
+        Returns list of phone objects.
+
+        Raises RuntimeError on error.
+        """
+        (limit, offset) = self.normalize_paging_args(limit, offset)
+        if limit:
+            user_id = six.moves.urllib.parse.quote_plus(str(user_id))
+            path = '/admin/v1/users/' + user_id + '/phones'
+            return self.json_api_call(
+                'GET', path, {'limit': limit, 'offset': offset})
+
+        return list(self.get_user_phones_iterator(user_id))
 
     def add_user_phone(self, user_id, phone_id):
         """
@@ -691,21 +832,40 @@ class Admin(client.Client):
         return self.json_api_call('DELETE', path,
                                     params)
 
-    def get_user_tokens(self, user_id):
+    def get_user_tokens_iterator(self, user_id):
         """
-        Returns an array of hardware tokens associated with the user.
+        Returns an iterator of hardware tokens associated with the user.
 
         user_id - User ID
 
-        Returns list of hardware token objects.
+        Returns iterator of hardware token objects.
 
         Raises RuntimeError on error.
         """
         user_id = six.moves.urllib.parse.quote_plus(str(user_id))
         path = '/admin/v1/users/' + user_id + '/tokens'
-        params = {}
-        return self.json_api_call('GET', path,
-                                    params)
+        return self.json_paging_api_call('GET', path, {})
+
+    def get_user_tokens(self, user_id, limit=None, offset=0):
+        """
+        Returns an array of hardware tokens associated with the user.
+
+        user_id - User ID
+        limit - The maximum number of records to return. (Optional)
+        offset - The offset of the first record to return. (Optional)
+
+        Returns list of hardware token objects.
+
+        Raises RuntimeError on error.
+        """
+        (limit, offset) = self.normalize_paging_args(limit, offset)
+        if limit:
+            user_id = six.moves.urllib.parse.quote_plus(str(user_id))
+            path = '/admin/v1/users/' + user_id + '/tokens'
+            return self.json_api_call(
+                'GET', path, {'limit': limit, 'offset': offset})
+
+        return list(self.get_user_tokens_iterator(user_id))
 
     def add_user_token(self, user_id, token_id):
         """
@@ -741,12 +901,30 @@ class Admin(client.Client):
         path = '/admin/v1/users/' + user_id + '/tokens/' + token_id
         return self.json_api_call('DELETE', path, {})
 
-    def get_user_u2ftokens(self, user_id):
+    def get_user_u2ftokens_iterator(self, user_id):
+        """ Returns an iterator of u2ftokens associated with a user.
+
+            Params:
+                user_id (str) - The user id.
+
+            Returns:
+                A generator yielding u2ftoken dicts.
+
+            Notes:
+                Raises RuntimeError on error.
+        """
+        user_id = six.moves.urllib.parse.quote_plus(str(user_id))
+        path = '/admin/v1/users/' + user_id + '/u2ftokens'
+        return self.json_paging_api_call('GET', path, {})
+
+    def get_user_u2ftokens(self, user_id, limit=None, offset=0):
         """ Returns an array of u2ftokens associated
             with a user.
 
             Params:
                 user_id (str) - The user id.
+                limit - The maximum number of records to return. (Optional)
+                offset - The offset of the first record to return. (Optional)
 
             Returns:
                 An array of u2ftoken dicts.
@@ -754,23 +932,49 @@ class Admin(client.Client):
             Notes:
                 Raises RuntimeError on error.
         """
-        user_id = six.moves.urllib.parse.quote_plus(str(user_id))
-        path = '/admin/v1/users/' + user_id + '/u2ftokens'
-        return self.json_api_call('GET', path, {})
+        (limit, offset) = self.normalize_paging_args(limit, offset)
+        if limit:
+            user_id = six.moves.urllib.parse.quote_plus(str(user_id))
+            path = '/admin/v1/users/' + user_id + '/u2ftokens'
+            return self.json_api_call(
+                'GET', path, {'limit': limit, 'offset': offset})
 
-    def get_user_groups(self, user_id):
+        return list(self.get_user_u2ftokens_iterator(user_id))
+
+    def get_user_groups_iterator(self, user_id):
         """
-        Returns an array of groups associated with the user.
+        Returns an iterator of groups associated with the user.
 
         user_id - User ID
 
-        Returns list of groups objects.
+        Returns iterator of groups objects.
 
         Raises RuntimeError on error.
         """
         user_id = six.moves.urllib.parse.quote_plus(str(user_id))
         path = '/admin/v1/users/' + user_id + '/groups'
-        return self.json_api_call('GET', path, {})
+        return self.json_paging_api_call('GET', path, {})
+
+    def get_user_groups(self, user_id, limit=None, offset=0):
+        """
+        Returns an array of groups associated with the user.
+
+        user_id - User ID
+        limit - The maximum number of records to return. (Optional)
+        offset - The offset of the first record to return. (Optional)
+
+        Returns list of groups objects.
+
+        Raises RuntimeError on error.
+        """
+        (limit, offset) = self.normalize_paging_args(limit, offset)
+        if limit:
+            user_id = six.moves.urllib.parse.quote_plus(str(user_id))
+            path = '/admin/v1/users/' + user_id + '/groups'
+            return self.json_api_call(
+                'GET', path, {'limit': limit, 'offset': offset})
+
+        return list(self.get_user_groups_iterator(user_id))
 
     def add_user_group(self, user_id, group_id):
         """
@@ -804,26 +1008,62 @@ class Admin(client.Client):
         params = {}
         return self.json_api_call('DELETE', path, params)
 
-    def get_endpoints(self):
+    def get_endpoints_iterator(self):
         """
-        Returns list of endpoints.
+        Returns iterator of endpoints objects.
 
         Raises RuntimeError on error.
         """
-        response = self.json_api_call('GET', '/admin/v1/endpoints', {})
-        return response
+        return self.json_paging_api_call('GET', '/admin/v1/endpoints', {})
 
-    def get_phones(self):
+    def get_endpoints(self, limit=None, offset=0):
         """
-        Returns list of phones.
+        Returns a list of endpoints.
 
-
-        Returns list of phone objects.
+        Params:
+            limit - The maximum number of records to return. (Optional)
+            offset - The offset of the first record to return. (Optional)
 
         Raises RuntimeError on error.
         """
-        response = self.json_api_call('GET', '/admin/v1/phones', {})
-        return response
+        (limit, offset) = self.normalize_paging_args(limit, offset)
+        if limit:
+            return self.json_api_call('GET', '/admin/v1/endpoints',
+                                      {'limit': limit, 'offset': offset})
+
+        return list(self.get_endpoints_iterator())
+
+    def get_phones_generator(self):
+        """
+        Returns a generator yielding phones.
+        """
+        return self.json_paging_api_call(
+            'GET',
+            '/admin/v1/phones',
+            {}
+        )
+
+    def get_phones(self, limit=None, offset=0):
+        """
+        Retrieves a list of phones.
+        Args:
+            limit: The max number of admins to fetch at once. Default None
+            offset: If a limit is passed, the offset to start retrieval.
+                    Default 0
+
+        Returns: list of phones
+
+        Raises RuntimeError on error.
+        """
+        (limit, offset) = self.normalize_paging_args(limit, offset)
+        if limit:
+            return self.json_api_call(
+                'GET',
+                '/admin/v1/phones',
+                {'limit': limit, 'offset': offset}
+            )
+
+        return list(self.get_phones_generator())
 
     def get_phone_by_id(self, phone_id):
         """
@@ -1056,16 +1296,38 @@ class Admin(client.Client):
             params['installation_msg'] = installation_msg
         return self.json_api_call('POST', path, params)
 
-    def get_desktoptokens(self):
+    def get_desktoptokens_generator(self):
         """
-        Returns list of desktop tokens.
+        Returns a generator yielding desktoptokens.
+        """
+        return self.json_paging_api_call(
+            'GET',
+            '/admin/v1/desktoptokens',
+            {}
+        )
 
-        Returns list of desktop token objects.
+    def get_desktoptokens(self, limit=None, offset=0):
+        """
+        Retrieves a list of desktoptokens.
+        Args:
+            limit: The max number of admins to fetch at once. Default None
+            offset: If a limit is passed, the offset to start retrieval.
+                    Default 0
+
+        Returns: list of desktoptokens
 
         Raises RuntimeError on error.
+
         """
-        response = self.json_api_call('GET', '/admin/v1/desktoptokens', {})
-        return response
+        (limit, offset) = self.normalize_paging_args(limit, offset)
+        if limit:
+            return self.json_api_call(
+                'GET',
+                '/admin/v1/desktoptokens',
+                {'limit': limit, 'offset': offset}
+            )
+
+        return list(self.get_desktoptokens_generator())
 
     def get_desktoptoken_by_id(self, desktoptoken_id):
         """
@@ -1167,19 +1429,37 @@ class Admin(client.Client):
             params)
         return response
 
-    def get_tokens(self):
+    def get_tokens_generator(self):
         """
-        Returns list of tokens.
-
-
-        Returns list of token objects.
+        Returns a generator yielding tokens.
         """
-        params = {}
-        response = self.json_api_call(
-            'GET', '/admin/v1/tokens',
-            params
+        return self.json_paging_api_call(
+            'GET',
+            '/admin/v1/tokens',
+            {}
         )
-        return response
+
+    def get_tokens(self, limit=None, offset=0):
+        """
+        Retrieves a list of tokens.
+        Args:
+            limit: The max number of admins to fetch at once. Default None
+            offset: If a limit is passed, the offset to start retrieval.
+                    Default 0
+
+        Returns: list of tokens
+
+        Raises RuntimeError on error.
+        """
+        (limit, offset) = self.normalize_paging_args(limit, offset)
+        if limit:
+            return self.json_api_call(
+                'GET',
+                '/admin/v1/tokens',
+                {'limit': limit, 'offset': offset}
+            )
+
+        return list(self.get_tokens_generator())
 
     def get_token_by_id(self, token_id):
         """
@@ -1507,6 +1787,49 @@ class Admin(client.Client):
                                       params)
         return response
 
+    def set_allowed_admin_auth_methods(self,
+                                        push_enabled=None,
+                                        sms_enabled=None,
+                                        voice_enabled=None,
+                                        mobile_otp_enabled=None,
+                                        yubikey_enabled=None,
+                                        hardware_token_enabled=None,
+                                        ):
+        params = {}
+        if push_enabled is not None:
+            params['push_enabled'] = (
+                '1' if push_enabled else '0')
+        if sms_enabled is not None:
+            params['sms_enabled'] = (
+                '1' if sms_enabled else '0')
+        if mobile_otp_enabled is not None:
+            params['mobile_otp_enabled'] = (
+                '1' if mobile_otp_enabled else '0')
+        if hardware_token_enabled is not None:
+            params['hardware_token_enabled'] = (
+                '1' if hardware_token_enabled else '0')
+        if yubikey_enabled is not None:
+            params['yubikey_enabled'] = (
+                '1' if yubikey_enabled else '0')
+        if voice_enabled is not None:
+            params['voice_enabled'] = (
+                '1' if voice_enabled else '0')
+        response = self.json_api_call(
+            'POST',
+            '/admin/v1/admins/allowed_auth_methods',
+            params
+        )
+        return response
+
+    def get_allowed_admin_auth_methods(self):
+        params={}
+        response = self.json_api_call(
+            'GET',
+            '/admin/v1/admins/allowed_auth_methods',
+            params
+        )
+        return response
+
     def get_info_summary(self):
         """
         Returns a summary of objects in the account.
@@ -1619,15 +1942,38 @@ class Admin(client.Client):
         )
         return response
 
-    def get_groups(self):
+    def get_groups_generator(self):
         """
-        Returns a list of groups.
+        Returns a generator yielding groups.
         """
-        return self.json_api_call(
+        return self.json_paging_api_call(
             'GET',
             '/admin/v1/groups',
             {}
         )
+
+    def get_groups(self, limit=None, offset=0):
+        """
+        Retrieves a list of groups.
+        Args:
+            limit: The max number of admins to fetch at once. Default None
+            offset: If a limit is passed, the offset to start retrieval.
+                    Default 0
+
+        Returns: list of groups
+
+        Raises RuntimeError on error.
+
+        """
+        (limit, offset) = self.normalize_paging_args(limit, offset)
+        if limit:
+            return self.json_api_call(
+                'GET',
+                '/admin/v1/groups',
+                {'limit': limit, 'offset': offset}
+            )
+
+        return list(self.get_groups_generator())
 
     def get_group(self, group_id, api_version=1):
         """
@@ -1655,7 +2001,7 @@ class Admin(client.Client):
 
         return self.json_api_call('GET', url + group_id, {})
 
-    def get_group_users(self, group_id, limit=100, offset=0):
+    def get_group_users(self, group_id, limit=None, offset=0):
         """
         Get a paginated list of users associated with the specified
         group.
@@ -1664,13 +2010,28 @@ class Admin(client.Client):
         limit - The maximum number of records to return. Maximum is 500. (Optional)
         offset - The offset of the first record to return. (Optional)
         """
-        return self.json_api_call(
+        (limit, offset) = self.normalize_paging_args(limit, offset)
+        if limit:
+            return self.json_api_call(
+                'GET',
+                '/admin/v2/groups/' + group_id + '/users',
+                {
+                    'limit': limit,
+                    'offset': offset,
+                })
+        return list(self.get_group_users_iterator(group_id))
+
+    def get_group_users_iterator(self, group_id):
+        """
+        Returns an iterator of users associated with the specified group.
+
+        group_id - The id of the group (Required)
+        """
+        return self.json_paging_api_call(
             'GET',
             '/admin/v2/groups/' + group_id + '/users',
-            {
-                'limit': str(limit),
-                'offset': str(offset),
-            })
+            {}
+        )
 
     def create_group(self, name,
                     desc=None,
@@ -1776,22 +2137,37 @@ class Admin(client.Client):
         )
         return response
 
-    def get_integrations(self):
+    def get_integrations_generator(self):
         """
-        Returns list of integrations.
+        Returns a generator yielding integrations.
+        """
+        return self.json_paging_api_call(
+            'GET',
+            '/admin/v1/integrations',
+            {}
+        )
 
+    def get_integrations(self, limit=None, offset=0):
+        """
+        Retrieves a list of integrations.
+        Args:
+            limit: The max number of admins to fetch at once. Default None
+            offset: If a limit is passed, the offset to start retrieval.
+                    Default 0
 
-        Returns list of integration objects.
+        Returns: list of integrations
 
         Raises RuntimeError on error.
         """
-        params = {}
-        response = self.json_api_call(
-            'GET',
-            '/admin/v1/integrations',
-            params
-        )
-        return response
+        (limit, offset) = self.normalize_paging_args(limit, offset)
+        if limit:
+            return self.json_api_call(
+                'GET',
+                '/admin/v1/integrations',
+                {'limit': limit, 'offset': offset}
+            )
+
+        return list(self.get_integrations_generator())
 
     def get_integration(self, integration_key):
         """
@@ -2025,17 +2401,43 @@ class Admin(client.Client):
         response = self.json_api_call('POST', path, params)
         return response
 
-    def get_admins(self):
+    def get_admins(self, limit=None, offset=0):
         """
-        Returns list of administrators.
+        Retrieves a list of administrators.
+        Args:
+            limit: The max number of admins to fetch at once. Default None
+            offset: If a limit is passed, the offset to start retrieval.
+                    Default 0
 
+        Returns: list of administrators. See the adminapi docs.
 
-        Returns list of administrator objects.  See the adminapi docs.
+        Raises RuntimeError on error.
+
+        """
+
+        (limit, offset) = self.normalize_paging_args(limit, offset)
+        if limit:
+            return self.json_api_call(
+                'GET',
+                '/admin/v1/admins',
+                {'limit': limit, 'offset': offset}
+            )
+
+        iterator = self.get_admins_iterator()
+
+        return list(iterator)
+
+    def get_admins_iterator(self):
+        """
+        Provides a generator which produces admins. Under the hood, this
+        generator uses pagination, so it will only store one page of admins at a
+        time in memory.
+
+        Returns: A generator which produces admins.
 
         Raises RuntimeError on error.
         """
-        response = self.json_api_call('GET', '/admin/v1/admins', {})
-        return response
+        return self.json_paging_api_call('GET', '/admin/v1/admins', {})
 
     def get_admin(self, admin_id):
         """
@@ -2083,7 +2485,9 @@ class Admin(client.Client):
     def update_admin(self, admin_id,
                      name=None,
                      phone=None,
-                     password=None):
+                     password=None,
+                     password_change_required=None,
+                     ):
         """
         Update one or more attributes of an administrator.
 
@@ -2091,6 +2495,7 @@ class Admin(client.Client):
         name - <str:the name of the administrator> (optional)
         phone - <str:phone number> (optional)
         password - <str:password> (optional)
+        password_change_required - <bool|None:Whether admin is required to change their password at next login> (optional)
 
         Returns the updated administrator.  See the adminapi docs.
 
@@ -2105,6 +2510,8 @@ class Admin(client.Client):
             params['phone'] = phone
         if password is not None:
             params['password'] = password
+        if password_change_required is not None:
+            params['password_change_required'] = password_change_required
         response = self.json_api_call('POST', path, params)
         return response
 
@@ -2199,17 +2606,39 @@ class Admin(client.Client):
     def delete_logo(self):
         return self.json_api_call('DELETE', '/admin/v1/logo', params={})
 
-    def get_u2ftokens(self):
-        """ Returns a list of u2ftokens.
-
-            Returns:
-                Returns a list of u2ftoken dicts.
-
-            Notes:
-                Raises RuntimeError on error.
+    def get_u2ftokens(self, limit=None, offset=0):
         """
-        response = self.json_api_call('GET', '/admin/v1/u2ftokens', {})
-        return response
+        Retrieves a list of u2ftokens
+        Args:
+            limit: The max number of u2ftokens to fetch at once. Default None
+            offset: If a limit is passed, the offset to start retrieval.
+                    Default 0
+
+        Returns: A list of u2ftokens
+
+        Notes: Raises RuntimeError on error.
+        """
+        (limit, offset) = self.normalize_paging_args(limit, offset)
+
+        if limit:
+            return self.json_api_call('GET',
+                                      '/admin/v1/u2ftokens',
+                                      {'limit': limit, 'offset': offset})
+
+        iterator = self.get_u2ftokens_iterator()
+        return list(iterator)
+
+    def get_u2ftokens_iterator(self):
+        """
+        Provides a generator which u2ftokens. Under the hood, this generator
+        uses pagination, so it will only store one page of administrative_units
+        at a time in memory.
+
+        Returns: A generator which produces u2ftokens.
+
+        Raises RuntimeError on error.
+        """
+        return self.json_paging_api_call('GET', '/admin/v1/u2ftokens', {})
 
     def get_u2ftoken_by_id(self, registration_id):
         """ Returns u2ftoken specified by registration_id.
@@ -2247,17 +2676,38 @@ class Admin(client.Client):
         response = self.json_api_call('DELETE', path, {})
         return response
 
-    def get_bypass_codes(self):
-        """ Gets a list of bypass codes.
-
-            Returns:
-                Returns a list of bypass code dicts.
-
-            Notes:
-                Raises RuntimeError on error.
+    def get_bypass_codes_generator(self):
         """
-        response = self.json_api_call('GET', '/admin/v1/bypass_codes', {})
-        return response
+        Returns a generator yielding bypass codes.
+        """
+        return self.json_paging_api_call(
+            'GET',
+            '/admin/v1/bypass_codes',
+            {}
+        )
+
+    def get_bypass_codes(self, limit=None, offset=0):
+        """
+        Retrieves a list of bypass codes.
+        Args:
+            limit: The max number of admins to fetch at once. Default None
+            offset: If a limit is passed, the offset to start retrieval.
+                    Default 0
+
+        Returns: list of bypass codes
+
+        Raises RuntimeError on error.
+
+        """
+        (limit, offset) = self.normalize_paging_args(limit, offset)
+        if limit:
+            return self.json_api_call(
+                'GET',
+                '/admin/v1/bypass_codes',
+                {'limit': limit, 'offset': offset}
+            )
+
+        return list(self.get_bypass_codes_generator())
 
     def delete_bypass_code_by_id(self, bypass_code_id):
         """ Deletes a bypass code. If the bypass code is already
@@ -2274,3 +2724,22 @@ class Admin(client.Client):
         path = '/admin/v1/bypass_codes/' + bypass_code_id
         response = self.json_api_call('DELETE', path, {})
         return response
+
+    def sync_user(self, username, directory_key):
+        """ Syncronize a single user immediately with a specified directory.
+
+        Params:
+            username (str) - The username of the user to be synchronized.
+            directory_key (str) - The unique id of the directory.
+
+        Notes:
+            Raises RuntimeError on error.
+        """
+        params = {
+            'username': username,
+        }
+        directory_key = six.moves.urllib.parse.quote_plus(directory_key)
+        path = (
+            '/admin/v1/users/directorysync/{directory_key}/syncuser').format(
+                directory_key=directory_key)
+        return self.json_api_call('POST', path, params)
