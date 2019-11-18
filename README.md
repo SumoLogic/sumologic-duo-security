@@ -17,7 +17,7 @@ Sumo Logic App for Duo Security uses following logs. See Duo's [documentation](h
 3. Define Environment Variables for the Lambda Function.
 4. Add a time-based trigger for the Lambda function.
 
-### Collect Logs for Duo Security Via Cron Job Deployed at Kubernetes Cluster
+### Collect Logs for Duo Security Via CronJob task deployed at Kubernetes Cluster
 1. Deploy the secret `duocreds` using following kubectl cmd, and replace S_KEY, I_KEY, HOST with [Duo Admin API Creds](https://duo.com/docs/adminapi#logs). Replace COLL_ENDPOINT with Sumo Logic HTTP URL
 
 ```
