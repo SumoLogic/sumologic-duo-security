@@ -11,11 +11,29 @@ Sumo Logic App for Duo Security uses following logs. See Duo's [documentation](h
 - Administrator Logs
 - Telephony Logs
 
-### Collect Logs for Duo Security
+### Collect Logs for Duo Security Via AWS Lambda
 1. Create an HTTP Logs and Metrics Source.
 2. Download the Lambda Function code, and upload it to AWS Lambda Console and create a Lambda function.
 3. Define Environment Variables for the Lambda Function.
 4. Add a time-based trigger for the Lambda function.
+
+### Collect Logs for Duo Security Via Cron Job Deployed at Kubernetes Cluster
+1. Deploy the secret`duocreds` using following kubectl cmd, and replace S_KEY, I_KEY, HOST with [Duo Admin API Creds] (https://duo.com/docs/adminapi#logs). Replace COLL_ENDPOINT with Sumo Logic HTTP URL
+
+```
+kubectl create secret generic duocreds  --from-literal=S_KEY=<>  --from-literal=I_KEY=<> --from-literal=HOST=<> --from-literal=COLL_ENDPOINT=<>  --from-literal=SCAN_INTERVAL_IN_SEC=300
+```
+
+2. Run following cmd, this will create 5 mins cronjob to fetch Duo logs and send to Sumo Logic HTTP URL
+
+```kubectl apply -f https://sumologic-app-data.s3.amazonaws.com/Duo/hw_dep.yaml```
+
+3. Verify 
+
+```kubectl get pods  | grep duo
+   kubectl get jobs
+````
+ 
 
 Detailed instructions [here](https://help.sumologic.com/07Sumo-Logic-Apps/22Security_and_Threat_Detection/Duo_Security/Collect_Logs_for_Duo_Security).
 
