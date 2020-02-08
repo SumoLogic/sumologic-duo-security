@@ -2,8 +2,8 @@ import json
 import os
 import time
 
-from botocore.vendored import requests
 import duo_client
+import requests
 
 i_key = os.environ.get('I_KEY')
 s_key = os.environ.get('S_KEY')
