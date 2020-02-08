@@ -9,7 +9,7 @@ i_key = os.environ.get('I_KEY')
 s_key = os.environ.get('S_KEY')
 host = os.environ.get('HOST')
 collector_url = os.environ.get('COLL_ENDPOINT')
-scan_interval_in_sec = int(os.environ['SCAN_INTERVAL_IN_SEC'])
+scan_interval_in_sec = int(os.environ.get('SCAN_INTERVAL_IN_SEC', 0))
 
 admin_api = duo_client.Admin(
         ikey=i_key,
