@@ -18,8 +18,9 @@ admin_api = duo_client.Admin(
 
 
 def fetch_logs(min_time=None, max_time=None):
-    auth_logs = admin_api.get_authentication_log(api_version=2, mintime=min_time, maxtime=max_time) # kwarg mintime
-    return auth_logs['authlogs'] #this isn't considering iteration in event too many messages returned.
+    auth_logs = admin_api.get_authentication_log(api_version=2, mintime=min_time, maxtime=max_time)
+    #this isn't considering iteration in event too many messages returned.
+    return auth_logs['authlogs']
 
 
 def fetch_admin_logs(min_time=None):
@@ -89,12 +90,12 @@ def lambda_handler(req, context):
     logs = format_auth_logs(logs)
     dump_logs(logs)
 
-#fetch admin logs
+    #fetch admin logs
     logs_admin = fetch_admin_logs(min_time=(time.time()-scan_interval_in_sec))
     logs_admin = format_admin_logs(logs_admin)
     dump_logs(logs_admin)
 
-#fetch telephony logs
+    #fetch telephony logs
     logs_telephony = fetch_telephony_logs(min_time=(time.time()-scan_interval_in_sec))
     logs_telephony = format_telephony_logs(logs_telephony)
     dump_logs(logs_telephony)
