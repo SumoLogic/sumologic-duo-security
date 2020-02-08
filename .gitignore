@@ -102,3 +102,12 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+# requests-related
+bin/
+certifi*/
+chardet*/
+idna*/
+requests*/
+urllib3*/
+duo_client*/
