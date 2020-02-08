@@ -87,17 +87,14 @@ def dump_logs(data):
 def lambda_handler(req, context):
     logs = fetch_logs(min_time=(time.time()-scan_interval_in_sec)*1000, max_time=time.time()*1000)
     logs = format_auth_logs(logs)
-    #print(logs)
     dump_logs(logs)
 
 #fetch admin logs
     logs_admin = fetch_admin_logs(min_time=(time.time()-scan_interval_in_sec))
     logs_admin = format_admin_logs(logs_admin)
-    #print(logs_admin)
     dump_logs(logs_admin)
 
 #fetch telephony logs
     logs_telephony = fetch_telephony_logs(min_time=(time.time()-scan_interval_in_sec))
     logs_telephony = format_telephony_logs(logs_telephony)
-    #print(logs_telephony)
     dump_logs(logs_telephony)
