@@ -19,7 +19,7 @@ Sumo Logic App for Duo Security uses the following logs. See Duo's [documentatio
 git clone https://github.com/SumoLogic/sumologic-duo-security.git
 pip3 install --target ./sumologic-duo-security requests
 pip3 install --target ./sumologic-duo-security duo_client
-find ./sumologic-duo-security ! -path "./*/.*" | zip ./archive.zip -@
+cd sumologic-duo-security && find . ! -path ".git" | zip ./archive.zip -@
 ```
 
 3. Upload the resulting `archive.zip` to AWS Lambda Console and create a Lambda function.
