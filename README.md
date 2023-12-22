@@ -1,5 +1,12 @@
+
 # sumologic-duo-security
 Serverless collection solution to collect Duo security logs in to Sumo logic
+
+Deprecation Notice
+This legacy solution to pull logs from Dup to Sumo Logic has been replaced with a dedicated Cloud-to-Cloud Integration Framework source. We recommend customers use the Duo Cloud-to-Cloud source instead of this legacy Python collection method.
+
+[duo-source/](https://help.sumologic.com/docs/send-data/hosted-collectors/cloud-to-cloud-integration-framework/duo-source/)
+
 
 ### Sumo Logic App for Duo Security
 Duo provides two-factor authentication, endpoint remediation, and secure single sign-on tools. The Sumo Logic App for Duo Security helps you monitor your Duo account’s authentication logs, administrator logs, and telephony logs. The dashboards provide insight into failed and successful authentications, events breakdown by applications, factors, and users, geo-location of events, admin activities, outliers, threat analysis of authentication, and administrator events.
