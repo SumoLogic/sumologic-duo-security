@@ -2,7 +2,8 @@
 # sumologic-duo-security
 Serverless collection solution to collect Duo security logs in to Sumo logic
 
-Deprecation Notice
+# Deprecation Notice
+
 This legacy solution to pull logs from Dup to Sumo Logic has been replaced with a dedicated Cloud-to-Cloud Integration Framework source. We recommend customers use the Duo Cloud-to-Cloud source instead of this legacy Python collection method.
 
 [duo-source/](https://help.sumologic.com/docs/send-data/hosted-collectors/cloud-to-cloud-integration-framework/duo-source/)
